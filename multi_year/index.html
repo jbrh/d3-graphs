@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<!--this is a chloropleth of US population-->
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>US Population 2010</title>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/queue.v1.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/topojson.v1.min.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+
+    <style>
+        path {
+            stroke: white;
+            stroke-width: 1.5px;
+        }
+        
+        body {
+            width: 1000px;
+            height: 800px;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+        }
+
+        .pull-right {
+            padding-top: 20px;
+        }
+
+        #title {
+            margin-left: 60px;
+            float: left;
+        }
+        
+        .us_geo {
+            fill: none;
+            stroke: #cfcfcf;
+        }
+
+        .d3-tip {
+            line-height: 1.5;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            border-radius: 4px;;
+        }
+
+        .toolTipHead {
+            font-size: 14px;
+        }
+
+        .toolTipRank {
+            font-size: 16px;
+            font-weight: bold;
+            color: red;
+        }
+
+        .legendTitle {
+            font-family: "Oxygen";
+            font-size: 20px;
+            color: #666;
+            margin-left: -5px;
+        }
+
+        #legend {
+            width: 900px;
+            position: absolute;
+            left: 60px;
+            top: 575px;
+        }
+
+        li.key {
+            float: left;
+            border-top-width: 15px;
+            border-top-style: solid;
+            font-family: "Oxygen";
+            color: #666;
+            font-size: 16px;
+            width: 8%;/*total width divided by number of list items*/
+            padding-left: 0;
+            padding-right: 0;
+            list-style:none;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="title"><h2>US Population By Census Year</h2></div>
+    <div id="legend">
+    </div>
+    <div class="btn-group pull-right">
+        <button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
+            Select Year<span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" role="menu">
+            <li><a class="m" value="year_1900" href="#">1900</a></li>
+            <li><a class="m" value="year_1910" href="#">1910</a></li>
+            <li><a class="m" value="year_1920" href="#">1920</a></li>
+            <li><a class="m" value="year_1930" href="#">1930</a></li>
+            <li><a class="m" value="year_1940" href="#">1940</a></li>
+            <li><a class="m" value="year_1950" href="#">1950</a></li>
+            <li><a class="m" value="year_1960" href="#">1960</a></li>
+            <li><a class="m" value="year_1970" href="#">1970</a></li>
+            <li><a class="m" value="year_1980" href="#">1980</a></li>
+            <li><a class="m" value="year_1990" href="#">1990</a></li>
+            <li><a class="m" value="year_2000" href="#">2000</a></li>
+            <li><a class="m" value="year_2010" href="#">2010</a></li>
+        </ul>
+    </div>
+
+    <script type="text/javascript">
+
+        var width = 900,
+            height = 500;
+
+        var path = d3.geo.path();
+
+        var svg = d3.select("body")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g");
+
+        var year_1900 = {};
+        var year_1910 = {};
+        var year_1920 = {};
+        var year_1930 = {};
+        var year_1940 = {};
+        var year_1950 = {};
+        var year_1960 = {};
+        var year_1970 = {};
+        var year_1980 = {};
+        var year_1990 = {};
+        var year_2000 = {};
+        var year_2010 = {};
+
+        var color_domain = [3000000, 6000000, 9000000, 12000000, 15000000, 18000000, 21000000, 24000000, 27000000, 30000000, 33000000];
+
+        /*var ext_color_domain = [0, 3000000, 6000000, 9000000, 12000000, 15000000, 18000000, 21000000, 24000000, 27000000, 30000000, 33000000];*/
+
+        var legend_labels = ["< 3 million", "3 million+", "6 million+", "9 million+", "12 million+", "15 million+", "18 million+", "21 million+", "24 million+", "27 million+", "30 million+", "33 million+"];
+
+        var color = d3.scale.threshold()
+            .domain(color_domain) //made divergent range with http://colorbrewer2.org/
+            .range(["#006837", "#1a9850", "#66bd63", "#a6d96a", "#d9ef8b", "#ffffbf", "#fee08b", "#fdae61", "#f46d43", "#d73027", "#a50026", "#520013"]);
+
+       
+
+        // wrapper function to enable switching map and legend content
+        function updateChoro(choro) {
+
+            // function to read in data from csv file
+            d3.csv("US_census.csv", function(error, data) {
+
+                        // set the colour scale of the choropleth map
+                        var cscale,
+                            domain;
+
+                        if (choro == "year_1900") {
+                            choro = year_1900;
+                            cscale = color;
+                            domain = '1900 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_1910") {
+                            choro = year_1910;
+                            cscale = color;
+                            domain = '1910 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_1920") {
+                            choro = year_1920;
+                            cscale = color;
+                            domain = '1920 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_1930") {
+                            choro = year_1930;
+                            cscale = color;
+                            domain = '1930 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions/span>";
+                        }
+                        if (choro == "year_1940") {
+                            choro = year_1940;
+                            cscale = color;
+                            domain = '1940 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_1950") {
+                            choro = year_1950;
+                            cscale = color;
+                            domain = '1950 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_1960") {
+                            choro = year_1960;
+                            cscale = color;
+                            domain = '1960 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions/span>";
+                        }
+                        if (choro == "year_1970") {
+                            choro = year_1970;
+                            cscale = color;
+                            domain = '1970 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_1980") {
+                            choro = year_1980;
+                            domain = '1980 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population</span>";
+                        }
+                        if (choro == "year_1990") {
+                            choro = year_1990;
+                            cscale = color;
+                            domain = '1990 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_2000") {
+                            choro = year_2000;
+                            cscale = color;
+                            domain = '2000 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        }
+                        if (choro == "year_2010") {
+                            choro = year_2010;
+                            cscale = color;
+                            domain = '2010 '
+                            document.getElementById("legend").innerHTML="<span class = legendTitle>" + domain + "Population in millions</span>";
+                        };
+
+                        /*var color = d3.scale.quantize()
+                            .domain([6500, 1])
+                            .range(cscale);*/
+
+                        data.forEach(function(d) {
+                            year_1900[d.id] = +d.year_1900;
+                            year_1910[d.id] = +d.year_1910;
+                            year_1920[d.id] = +d.year_1920;
+                            year_1930[d.id] = +d.year_1930;
+                            year_1940[d.id] = +d.year_1940;
+                            year_1950[d.id] = +d.year_1950;
+                            year_1960[d.id] = +d.year_1960;
+                            year_1970[d.id] = +d.year_1970;
+                            year_1980[d.id] = +d.year_1980;
+                            year_1990[d.id] = +d.year_1990;
+                            year_2000[d.id] = +d.year_2000;
+                            year_2010[d.id] = +d.year_2010;
+                        });
+
+                        // function to read in data from json file
+                        d3.json("us.json", function(error, us) {
+
+                            // build the choropleth map
+                            var appending = svg.selectAll("g")
+                                .attr("class", "us_geo")
+                                .data(topojson.feature(us, us.objects.states).features);
+
+                            // add new elements
+                            appending.enter().append("path");
+
+                            // update existing elements
+                            appending.style("fill",
+                                    function(d) {
+                                        return color(choro[d.id]);
+                                    })
+                                .style("stroke", "white")
+                                .style("stroke-width", 1)
+                                .attr("d", path)
+                                //.on("click", clicked)
+
+                                d3.select('#legend')
+                                    .selectAll('ul')
+                                    .remove();
+
+                                // build the map legend
+                                var legend = d3.select('#legend')
+                                    .append('ul')
+                                    .attr('class', 'list-inline');
+                
+                                var keys = legend.selectAll('li.key')
+                                    .data(color.range());
+
+                                var legend_items = ["< 3", "3+", "6+", "9+", "12+", "15+", "18+", "21+", "24+", "27+", "30+", "33+"];
+                
+                                keys.enter().append('li')
+                                    .attr('class', 'key')
+                                    .style('border-top-color', String)
+
+                                    .text(function (d, i) {
+                                        return legend_items[i];
+                                    })
+                                    .style("text-anchor", "middle")
+                                    //.attr("transform", "rotate(90)");
+
+
+                                /*var legend = svg.selectAll("g.legend")
+                                     .data(ext_color_domain)
+                                     .enter().append("g")
+                                     .attr("class", "legend");
+                                     
+                                    var ls_w = 20, ls_h = 20;
+                                     
+                                    legend.append("rect")
+                                     .attr("x", 20)
+                                     .attr("y", function(d, i){ return height - (i*ls_h) - 2*ls_h;})
+                                     .attr("width", ls_w)
+                                     .attr("height", ls_h)
+                                     .style("fill", function(d, i) { return color(d); })
+                                     .style("opacity", 0.8);
+                                     
+                                    legend.append("text")
+                                     .attr("x", 50)
+                                     .attr("y", function(d, i){ return height - (i*ls_h) - ls_h - 4;})
+                                     .text(function(d, i){ return legend_labels[i]; });*/
+                                
+                                })
+                            })
+
+                        }
+
+                        // generate initial map using overall deprivation rank data
+                        updateChoro('year_2010');
+
+                        // handle on click event to switch between maps
+                        d3.selectAll(".m")
+                            .on("click", function() {
+                                var choro = this.getAttribute("value");
+                                updateChoro(choro);
+                            });
+
+</script>
+
+    <!--<div id="legend">
+</div>-->
+
+</body>
+
+</html>
